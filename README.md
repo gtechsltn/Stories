@@ -1,3 +1,128 @@
+# SQL Bulk Copy
+* [SQL Bulk Insert](https://pritom.hashnode.dev/sql-bulk-insert-c-sharp)
+* [SQL Bulk Update](https://pritom.hashnode.dev/sql-bulk-update-c-sharp)
+
+# 1. SQL Bulk Update - C# (BulkCopy) Using C# (SQL BulkCopy)
+
+https://pritom.hashnode.dev/sql-bulk-update-c-sharp
+
+Steps: 
+
+So there is no magic method to do a bulk update on the database using c#. But we can have some workaround on it. There are some steps to achieve that.
+
+* Create a temp table.
+* Insert all the data into the temp table.
+* Update from that temp table to destination table.
+* Drop temp table.
+
+## Convert List to DataTable
+```
+private DataTable ToDataTable(List<T> items)
+{
+  DataTable dataTable = new DataTable(typeof(T).Name);
+  PropertyInfo[] Props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+  foreach (PropertyInfo prop in Props)
+  {
+    dataTable.Columns.Add(prop.Name);
+  }
+  foreach (T item in items)
+  {
+    var values = new object[Props.Length];
+    for (int i = 0; i < Props.Length; i++)
+    {
+      values[i] = Props[i].GetValue(item, null);
+    }
+    dataTable.Rows.Add(values);
+  }
+  return dataTable;
+}
+```
+
+## Convert List to DataTable
+```
+private DataTable ToDataTable(List<T> items)
+{
+  DataTable dataTable = new DataTable(typeof(T).Name);
+  PropertyInfo[] Props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+  foreach (PropertyInfo prop in Props)
+  {
+    dataTable.Columns.Add(prop.Name);
+  }
+  foreach (T item in items)
+  {
+    var values = new object[Props.Length];
+    for (int i = 0; i < Props.Length; i++)
+    {
+      values[i] = Props[i].GetValue(item, null);
+    }
+    dataTable.Rows.Add(values);
+  }
+  return dataTable;
+}
+```
+
+
+## Create Temp Table in SQL Server from DataTable
+```
+string GetTempTableCreateCmd(DataTable dataTable, string tempTable)
+{
+  StringBuilder columnTxt = new StringBuilder();
+  columnTxt.Append($"CREATE TABLE {tempTable}(");
+  int columnCount = dataTable.Columns.Count;
+  for (int i = 0; i < columnCount; i++)
+  {
+    string dataType = dataTable.Columns[i].DataType == Type.GetType("System.String") ? "VARCHAR(100) " : dataTable.Columns[i].DataType.ToString();
+    string colum = $"{dataTable.Columns[i]} {dataType}";
+    columnTxt.Append($"{colum}");
+    if (i != columnCount - 1)
+      columnTxt.Append(", ");
+  }
+  columnTxt.Append(");");
+  return columnTxt.ToString();
+}
+```
+
+## ExecuteCmd
+```
+string tempTableTxtCmd = GetTempTableCreateCmd(datatable, tempTableName);
+ExecuteCmd(tempTableTxtCmd, conn);
+
+private void ExecuteCmd(string cmdTxt, SqlConnection connection)
+{
+  using (SqlCommand cmd = new SqlCommand(cmdTxt, connection))
+  {
+    cmd.ExecuteNonQuery();
+  }
+}
+```
+
+## Update Original from Temp Table
+```
+string GetOriginalTblToTempTableUpdateCmd(DataTable dataTable, string originalTable, string tempTable)
+{
+  StringBuilder updateTblCmd = new StringBuilder();
+  updateTblCmd.Append("UPDATE ORGI SET ");
+
+  for (int i = 1; i < dataTable.Columns.Count; i++)
+  {
+    updateTblCmd.Append($"ORGI.{dataTable.Columns[i]} = TEMP.{dataTable.Columns[i]}");
+
+    if (i != dataTable.Columns.Count - 1)
+      updateTblCmd.Append(", ");
+  }
+
+  updateTblCmd.Append($" FROM {tempTable} TEMP INNER JOIN {originalTable} ORGI ON ORGI.{dataTable.Columns[0]} = TEMP.{dataTable.Columns[0]}");
+
+  return updateTblCmd.ToString();
+}
+```
+
+## Drop Temp Table
+```
+var dropTempTableCmd = $"DROP TABLE {tempTableName}";
+ExecuteCmd(dropTempTableCmd, conn);
+```
+
 # Developer Stories 🧛‍♂️🥂😎💥
 
 Get Started with Any of the code base, follow this pattern:
